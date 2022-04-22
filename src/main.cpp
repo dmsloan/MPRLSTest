@@ -16,6 +16,8 @@
 #include<Wire.h>
 #include <SparkFun_MicroPressure.h>
 
+const String sketchName = "MPRLSTest";
+
 /*
  * Initialize Constructor
  * Optional parameters:
@@ -28,22 +30,30 @@
 SparkFun_MicroPressure mpr; // Use default values with reset and EOC pins unused
 
 double wPSI = 0;
-double h20 = 27.707258364511;
+double winH2O = 0;
+double H2O = 27.707258364511;
 double zeroOffset = 0.42590458737339;
 
 // weighted average
 //
 // Tracks a weighted average in order to smooth out the values that it is given.
 // it takes about ten readings to sabilize.
-double wtgAverage (double pressure){
-  static double wtgAverage;
-  wtgAverage = (wtgAverage * 0.9) + (pressure * 0.1);
-  return wtgAverage;
+double wtgAverage (double wtgReading, double reading){
+  double average;
+  reading = reading*0.1;
+  wtgReading = wtgReading*0.9;
+  average = wtgReading + reading;
+  return average;
 }
 
 void setup() {
   // Initalize UART, I2C bus, and connect to the micropressure sensor
   Serial.begin(115200);
+    while (!Serial){};
+  Serial.println();
+  Serial.print("Sketch is called ");
+  Serial.println(sketchName);
+
   Wire.begin();
 
   /* The micropressure sensor uses default settings with the address 0x18 using Wire.
@@ -69,26 +79,23 @@ void loop() {
      atmospheres.
    */
 
-  wPSI = wtgAverage(mpr.readPressure()); // Calculate the FPS rate
+for (size_t i = 0; i < 10; i++)
+{
+  Serial.println(mpr.readPressure(), 20); // 2 decimal places by default
+  wPSI = wtgAverage(wPSI, mpr.readPressure()+zeroOffset); // Calculate the time weighted average
+  delay(100);
+}
 
-  Serial.printf("psi: %4.20lf", wPSI);
-  Serial.println();
-  Serial.print(mpr.readPressure()*h20, 20);
+  Serial.printf("%4.20lf", wPSI);
+  Serial.println(" Weighted average PSI corrected");
+  Serial.print(mpr.readPressure()+zeroOffset, 20);
+  Serial.println(" PSI corrected");
+  Serial.print(wPSI*H2O, 20); // print the weighted average of H20
   Serial.println(" inH2O");
-  Serial.print(mpr.readPressure()+0.42590458737339, 20);
-  Serial.println(" PSI");
-  Serial.print(mpr.readPressure(PA),1);
-  Serial.println(" Pa");
   Serial.print(((mpr.readPressure(KPA))*10)+29.3650876);
   Serial.println(" mb correct as of 7:00 PM 4/20/2022");
   Serial.print(mpr.readPressure(INHG)+0.8696,4);
   Serial.println(" inHg correct as of 7:00 PM 4/20/2022");
-  Serial.print(mpr.readPressure(TORR),3);
-  Serial.println(" torr");
-  Serial.print(mpr.readPressure(ATM),6);
-  Serial.println(" atm");
-  Serial.print(mpr.readPressure(BAR),6);
-  Serial.println(" bar");
   Serial.println();
-  delay(1000);
+  delay(900);
 }
