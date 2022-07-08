@@ -13,8 +13,19 @@
 // Include the SparkFun MicroPressure library.
 // Click here to get the library: http://librarymanager/All#SparkFun_MicroPressure
 
+/*
+Add BME280 temperature, humidity, and pressure support.
+*/
+
 #include<Wire.h>
 #include <SparkFun_MicroPressure.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BME280.h>
+
+//#define SEALEVELPRESSURE_HPA (1013.25) //this is the default
+//#define SEALEVELPRESSURE_HPA (1014.9) // as reported at VNY 2022/04/24 23:00
+//#define SEALEVELPRESSURE_HPA (1012.6) // as reported at BUR 2022/04/25 18:00
+#define SEALEVELPRESSURE_HPA (1014.31) // calculated from main at IBE 2022/04/25
 
 const String sketchName = "MPRLSTest";
 
@@ -28,6 +39,10 @@ const String sketchName = "MPRLSTest";
  */
 //SparkFun_MicroPressure mpr(EOC_PIN, RST_PIN, MIN_PSI, MAX_PSI);
 SparkFun_MicroPressure mpr; // Use default values with reset and EOC pins unused
+
+Adafruit_BME280 bme; // I2C
+
+unsigned long delayTime;
 
 double wPSI = 0;
 double winH2O = 0;
@@ -44,6 +59,69 @@ double wtgAverage (double wtgReading, double reading){
   wtgReading = wtgReading*0.9;
   average = wtgReading + reading;
   return average;
+}
+
+/*
+ * @brief returns temperature or relative humidity
+ * @param "type" is character
+ *     C = Celsius
+ *     K = Keliven
+ *     F = Fahrenheit
+ *     H = Humidity
+ *     P = Pressure
+ *     A = Altitude
+ * @return returns one of the values above
+ * Usage: to get Fahrenheit type: getHTU('F')
+ * to print it on serial monitor Serial.println(getBME('F'));
+ * Written by Ahmad Shamshiri on July 13, 2019. Update july 25, 2019
+ * in Ajax, Ontario, Canada
+ * www.Robojax.com 
+ */
+float getBME(char type)
+{
+   // Robojax.com BME280 Code
+  float value;
+    float temp = bme.readTemperature();// read temperature
+    float pressure = bme.readPressure() / 100.0F; // read pressure
+    float rel_hum = bme.readHumidity();// read humidity
+    float alt =bme.readAltitude(SEALEVELPRESSURE_HPA);// read altitude
+   if(type =='F')
+   {
+    value = temp *9/5 + 32;//convert to Fahrenheit 
+   }else if(type =='K')
+   {
+    value = temp + 273.15;//convert to Kelvin
+   }else if(type =='H')
+   {
+    value = rel_hum;//return relative humidity
+   }else if(type =='P')
+   {
+    value = pressure;//return pressure
+   }else if(type =='A')
+   {
+    value = alt;//return approximate altitude
+   }else{
+    value = temp;// return Celsius
+   }
+   return value;
+    // Robojax.com BME280 Code
+}
+
+void printValues() {
+    Serial.printf("Temperature = %2.1f °C.\n", bme.readTemperature());
+
+    float tempF = getBME('F');
+    Serial.printf("Temperature = %2.1f °F. \n", tempF);
+
+    Serial.printf("Pressure = %3.1f hPa.\n", bme.readPressure() / 100.0F);
+
+    Serial.printf("Approx. Altitude = %3.0f meters.\n", bme.readAltitude(SEALEVELPRESSURE_HPA));
+
+    Serial.printf("Humidity = %2.0f%%\n", bme.readHumidity());
+
+    Serial.printf("Pressure = %3.4f Psi.\n", bme.readPressure() * 0.000145038F);
+
+    Serial.println();
 }
 
 void setup() {
@@ -70,6 +148,40 @@ void setup() {
     Serial.println("Cannot connect to MicroPressure sensor.");
     while(1);
   }
+
+    unsigned status;
+    
+    // default settings
+    status = bme.begin(0x76);  
+    // You can also pass in a Wire library object like &Wire2
+    // status = bme.begin(0x76, &Wire2)
+    if (!status) {
+        Serial.println("Could not find a valid BME280 sensor in space One, check wiring, address, sensor ID!");
+        Serial.print("SensorID was: 0x"); Serial.println(bme.sensorID(),16);
+        Serial.print("        ID of 0xFF probably means a bad address, a BMP 180 or BMP 085\n");
+        Serial.print("   ID of 0x56-0x58 represents a BMP 280,\n");
+        Serial.print("        ID of 0x60 represents a BME 280.\n");
+        Serial.print("        ID of 0x61 represents a BME 680.\n");
+        delay(5000);
+    }
+  
+    Serial.print("Sensor One ID was: 0X"); Serial.print(bme.sensorID(),16); Serial.print(" with a status of ");
+    Serial.println(status);
+
+    // indoor navigation
+    Serial.println("-- Indoor Navigation Scenario --");
+    Serial.println("normal mode, 16x pressure / 2x temperature / 1x humidity oversampling,");
+    Serial.println("0.5ms standby period, filter 16x");
+    bme.setSampling(Adafruit_BME280::MODE_NORMAL,
+                    Adafruit_BME280::SAMPLING_X2,  // temperature
+                    Adafruit_BME280::SAMPLING_X16, // pressure
+                    Adafruit_BME280::SAMPLING_X1,  // humidity
+                    Adafruit_BME280::FILTER_X16,
+                    Adafruit_BME280::STANDBY_MS_0_5 );
+    // suggested rate is 1/60Hz (1m)
+    delayTime = 1000; // in milliseconds
+    Serial.println();
+
 }
 
 void loop() {
@@ -79,23 +191,30 @@ void loop() {
      atmospheres.
    */
 
+float corrMPR = 0.8529;
+float corrBME = 0.8636;
+
 for (size_t i = 0; i < 10; i++)
 {
   Serial.println(mpr.readPressure(), 20); // 2 decimal places by default
-  wPSI = wtgAverage(wPSI, mpr.readPressure()+zeroOffset); // Calculate the time weighted average
+  wPSI = wtgAverage(wPSI, mpr.readPressure()); // Calculate the time weighted average
   delay(100);
 }
 
   Serial.printf("%4.20lf", wPSI);
-  Serial.println(" Weighted average PSI corrected");
-  Serial.print(mpr.readPressure()+zeroOffset, 20);
-  Serial.println(" PSI corrected");
-  Serial.print(wPSI*H2O, 20); // print the weighted average of H20
-  Serial.println(" inH2O");
-  Serial.print(((mpr.readPressure(KPA))*10)+29.3650876);
-  Serial.println(" mb correct as of 7:00 PM 4/20/2022");
-  Serial.print(mpr.readPressure(INHG)+0.8696,4);
-  Serial.println(" inHg correct as of 7:00 PM 4/20/2022");
-  Serial.println();
+  Serial.println(" Weighted average PSI");
+  Serial.print(mpr.readPressure(), 4);
+  Serial.println(" PSI read");
+  printValues();
+
+float mprV = mpr.readPressure(INHG) + corrMPR;
+float bmeV = (bme.readPressure() / 3386)+ corrBME;
+
+  Serial.print(mprV, 4);
+  Serial.println(" MPR INHG");
+  Serial.print(bmeV, 4);
+  Serial.println(" BME INHG");
+  Serial.print(mprV - bmeV);
+  Serial.println(" INHG difference");
   delay(900);
 }
