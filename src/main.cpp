@@ -48,6 +48,9 @@ double wPSI = 0;
 double winH2O = 0;
 double H2O = 27.707258364511;
 double zeroOffset = 0.42590458737339;
+double convertPaToH2O = 0.00401865;
+double convertPaToInHg = 0.00029529983071445;
+double zeroMprPa;
 
 // weighted average
 //
@@ -182,6 +185,13 @@ void setup() {
     delayTime = 1000; // in milliseconds
     Serial.println();
 
+  for (int i = 0; i<30; i++){
+  zeroMprPa = wtgAverage(zeroMprPa, bme.readPressure() - mpr.readPressure(PA)); // Calculate the time weighted average
+  Serial.print(".");
+  Serial.println(zeroMprPa);
+  delay(100);
+  }
+  Serial.println();
 }
 
 void loop() {
@@ -191,8 +201,12 @@ void loop() {
      atmospheres.
    */
 
-float corrMPR = 0.8529;
-float corrBME = 0.8636;
+//float corrMPR = 0.8529;
+//float corrBME = 0.8636;
+
+float corrMPR = 0.0;
+float corrBME = 0.0;
+
 
 for (size_t i = 0; i < 10; i++)
 {
@@ -208,13 +222,33 @@ for (size_t i = 0; i < 10; i++)
   printValues();
 
 float mprV = mpr.readPressure(INHG) + corrMPR;
-float bmeV = (bme.readPressure() / 3386)+ corrBME;
+float bmeV = (bme.readPressure() * convertPaToInHg)+ corrBME;
+
+float mprInH20 = (mpr.readPressure(PA) + zeroMprPa) * convertPaToH2O;
+float bmeInH20 = bme.readPressure() * convertPaToH2O;
+float mprPa = mpr.readPressure(PA);
+float bmePa = bme.readPressure();
+
 
   Serial.print(mprV, 4);
-  Serial.println(" MPR INHG");
+  Serial.println(" MPR InHg");
   Serial.print(bmeV, 4);
-  Serial.println(" BME INHG");
-  Serial.print(mprV - bmeV);
-  Serial.println(" INHG difference");
+  Serial.println(" BME InHg");
+  Serial.printf("Zero correction %4.4f \n", zeroMprPa);
+  Serial.print(mprPa, 4);
+  Serial.println(" MPR Pa");
+  Serial.print(bmePa, 4);
+  Serial.println(" BME Pa");
+  Serial.print(bmePa - mprPa - zeroMprPa, 4);
+  Serial.println(" Pa difference");
+  Serial.print((bmePa - mprPa - zeroMprPa)*convertPaToH2O, 1);
+  Serial.println(" Inches of water");
+
+  // Serial.print(mprInH20, 4);
+  // Serial.println(" MPR InH2O");
+  // Serial.print(bmeInH20, 4);
+  // Serial.println(" BME InH2O");
+  // Serial.print(mprInH20 - bmeInH20, 4);
+  // Serial.println(" InH2O difference");
   delay(900);
 }
