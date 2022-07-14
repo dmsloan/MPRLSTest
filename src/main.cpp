@@ -18,7 +18,7 @@ Add BME280 temperature, humidity, and pressure support.
 */
 
 #include<Wire.h>
-#include <SparkFun_MicroPressure.h>
+#include <Adafruit_MPRLS.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
 
@@ -38,7 +38,7 @@ const String sketchName = "MPRLSTest";
  *  - MAX_PSI: Maximum Pressure (default: 25 PSI)
  */
 //SparkFun_MicroPressure mpr(EOC_PIN, RST_PIN, MIN_PSI, MAX_PSI);
-SparkFun_MicroPressure mpr; // Use default values with reset and EOC pins unused
+Adafruit_MPRLS mpr; // Use default values with reset and EOC pins unused
 
 Adafruit_BME280 bme; // I2C
 
@@ -49,7 +49,10 @@ double winH2O = 0;
 double H2O = 27.707258364511;
 double zeroOffset = 0.42590458737339;
 double convertPaToH2O = 0.00401865;
+double convertHPaToH2O = 0.401865;
 double convertPaToInHg = 0.00029529983071445;
+double convertHPaToInHg = 0.029529983071445;
+double convertHPaToPsi = 0.0145038F;
 double zeroMprPa;
 
 // weighted average
@@ -122,7 +125,7 @@ void printValues() {
 
     Serial.printf("Humidity = %2.0f%%\n", bme.readHumidity());
 
-    Serial.printf("Pressure = %3.4f Psi.\n", bme.readPressure() * 0.000145038F);
+    Serial.printf("Pressure = %3.4f Psi.\n", (bme.readPressure() / 100.0F) * convertHPaToPsi);
 
     Serial.println();
 }
@@ -148,7 +151,7 @@ void setup() {
      Will return true on success or false on failure to communicate. */
   if(!mpr.begin())
   {
-    Serial.println("Cannot connect to MicroPressure sensor.");
+    Serial.println("Cannot connect to MicroPressure sensor, check wiring?");
     while(1);
   }
 
@@ -186,8 +189,7 @@ void setup() {
     Serial.println();
 
   for (int i = 0; i<30; i++){
-  zeroMprPa = wtgAverage(zeroMprPa, bme.readPressure() - mpr.readPressure(PA)); // Calculate the time weighted average
-  Serial.print(".");
+  zeroMprPa = wtgAverage(zeroMprPa, (bme.readPressure()/100.0F) - mpr.readPressure()); // Calculate the time weighted average
   Serial.println(zeroMprPa);
   delay(100);
   }
@@ -216,18 +218,19 @@ for (size_t i = 0; i < 10; i++)
 }
 
   Serial.printf("%4.20lf", wPSI);
-  Serial.println(" Weighted average PSI");
+  Serial.println(" Weighted average HPa");
   Serial.print(mpr.readPressure(), 4);
-  Serial.println(" PSI read");
+  Serial.println(" HPa read");
   printValues();
 
-float mprV = mpr.readPressure(INHG) + corrMPR;
-float bmeV = (bme.readPressure() * convertPaToInHg)+ corrBME;
+float mprHPa = mpr.readPressure();
+float bmeHPa = (bme.readPressure()/100.0F);
 
-float mprInH20 = (mpr.readPressure(PA) + zeroMprPa) * convertPaToH2O;
-float bmeInH20 = bme.readPressure() * convertPaToH2O;
-float mprPa = mpr.readPressure(PA);
-float bmePa = bme.readPressure();
+float mprV = (mprHPa * convertHPaToInHg) + corrMPR;
+float bmeV = (bmeHPa * convertHPaToInHg) + corrBME;
+
+float mprInH20 = (mprHPa + zeroMprPa) * convertPaToH2O;
+float bmeInH20 = bmeHPa * convertPaToH2O;
 
 
   Serial.print(mprV, 4);
@@ -235,13 +238,13 @@ float bmePa = bme.readPressure();
   Serial.print(bmeV, 4);
   Serial.println(" BME InHg");
   Serial.printf("Zero correction %4.4f \n", zeroMprPa);
-  Serial.print(mprPa, 4);
-  Serial.println(" MPR Pa");
-  Serial.print(bmePa, 4);
-  Serial.println(" BME Pa");
-  Serial.print(bmePa - mprPa - zeroMprPa, 4);
-  Serial.println(" Pa difference");
-  Serial.print((bmePa - mprPa - zeroMprPa)*convertPaToH2O, 1);
+  Serial.print(mprHPa, 4);
+  Serial.println(" MPR HPa");
+  Serial.print(bmeHPa, 4);
+  Serial.println(" BME HPa");
+  Serial.print(bmeHPa - mprHPa - zeroMprPa, 4);
+  Serial.println(" HPa difference");
+  Serial.print((bmeHPa - mprHPa - zeroMprPa)*convertPaToH2O, 1);
   Serial.println(" Inches of water");
 
   // Serial.print(mprInH20, 4);
