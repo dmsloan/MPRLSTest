@@ -243,7 +243,7 @@ float bmeInH20 = bmeHPa * convertPaToH2O;
   Serial.print(bmeHPa, 4);
   Serial.println(" BME HPa");
   Serial.print(bmeHPa - mprHPa - zeroMprPa, 4);
-  Serial.println(" HPa difference");
+  Serial.println(" HPa corrected difference");
   Serial.print((bmeHPa - mprHPa - zeroMprPa)*convertPaToH2O, 1);
   Serial.println(" Inches of water");
 
