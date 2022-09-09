@@ -44,7 +44,7 @@ Adafruit_BME280 bme; // I2C
 
 unsigned long delayTime;
 
-double wPSI = 0;
+double wHPa = 0;
 double winH2O = 0;
 double H2O = 27.707258364511;
 double zeroOffset = 0.42590458737339;
@@ -209,15 +209,14 @@ void loop() {
 float corrMPR = 0.0;
 float corrBME = 0.0;
 
-
 for (size_t i = 0; i < 10; i++)
 {
-  Serial.println(mpr.readPressure(), 20); // 2 decimal places by default
-  wPSI = wtgAverage(wPSI, mpr.readPressure()); // Calculate the time weighted average
+//  Serial.println(mpr.readPressure(), 14); // 2 decimal places by default
+  wHPa = wtgAverage(wHPa, mpr.readPressure()); // Calculate the time weighted average
   delay(100);
 }
 
-  Serial.printf("%4.20lf", wPSI);
+  Serial.printf("%4.20lf", wHPa);
   Serial.println(" Weighted average HPa");
   Serial.print(mpr.readPressure(), 4);
   Serial.println(" HPa read");
@@ -244,8 +243,10 @@ float bmeInH20 = bmeHPa * convertPaToH2O;
   Serial.println(" BME HPa");
   Serial.print(bmeHPa - mprHPa - zeroMprPa, 4);
   Serial.println(" HPa corrected difference");
-  Serial.print((bmeHPa - mprHPa - zeroMprPa)*convertPaToH2O, 1);
-  Serial.println(" Inches of water");
+  Serial.print("\033[1;32m"); //Set terminal color to green
+  Serial.print((bmeHPa - mprHPa - zeroMprPa)*convertPaToH2O, 3);
+  Serial.print(" Differential pressure in inH2O\033[0m\n\a"); //Set terminal color back to white and insert a carrage return. \a is the Terminal bell. It works with Putty but not with the terminal built into PlatformIO
+//  Serial.println("\033[1;32mbold green text\033[0m plain text\n");
 
   // Serial.print(mprInH20, 4);
   // Serial.println(" MPR InH2O");
