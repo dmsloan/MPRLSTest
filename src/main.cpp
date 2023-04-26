@@ -23,9 +23,9 @@ Add BME280 temperature, humidity, and pressure support.
 #include <Adafruit_BME280.h>
 
 //#define SEALEVELPRESSURE_HPA (1013.25) //this is the default
-//#define SEALEVELPRESSURE_HPA (1014.9) // as reported at VNY 2022/04/24 23:00
+double SEALEVELPRESSURE_HPA (1015.8); // as reported at VNY 2023/03/18 11:00
 //#define SEALEVELPRESSURE_HPA (1012.6) // as reported at BUR 2022/04/25 18:00
-#define SEALEVELPRESSURE_HPA (1014.31) // calculated from main at IBE 2022/04/25
+//#define SEALEVELPRESSURE_HPA (1016.93251660001) // calculated from main at IBE 2022/04/25
 
 const String sketchName = "MPRLSTest";
 
@@ -53,6 +53,7 @@ double convertHPaToH2O = 0.401865;
 double convertPaToInHg = 0.00029529983071445;
 double convertHPaToInHg = 0.029529983071445;
 double convertHPaToPsi = 0.0145038F;
+double convertMtoF = 3.28084; // multiply meeters by value to obtain feet
 double zeroMprPa;
 
 // weighted average
@@ -114,6 +115,7 @@ float getBME(char type)
 }
 
 void printValues() {
+    Serial.printf("BME values\n");
     Serial.printf("Temperature = %2.1f °C.\n", bme.readTemperature());
 
     float tempF = getBME('F');
@@ -121,7 +123,7 @@ void printValues() {
 
     Serial.printf("Pressure = %3.1f hPa.\n", bme.readPressure() / 100.0F);
 
-    Serial.printf("Approx. Altitude = %3.0f meters.\n", bme.readAltitude(SEALEVELPRESSURE_HPA));
+    Serial.printf("Approx. Altitude = %3.0f feet. Home is 1082. We are off by %1.0f.\n", bme.readAltitude(SEALEVELPRESSURE_HPA)*(convertMtoF), (bme.readAltitude(SEALEVELPRESSURE_HPA)*(convertMtoF))-1082);
 
     Serial.printf("Humidity = %2.0f%%\n", bme.readHumidity());
 
@@ -188,6 +190,15 @@ void setup() {
     delayTime = 1000; // in milliseconds
     Serial.println();
 
+//read get the sealevel pressure from the current pressure based on given altitude.
+  Serial.println(SEALEVELPRESSURE_HPA);
+  Serial.printf("Standard altitude is %3.0f meters.\n", bme.readAltitude(SEALEVELPRESSURE_HPA));
+
+  SEALEVELPRESSURE_HPA = bme.seaLevelForAltitude(330, bme.readPressure()/100);
+  Serial.printf("Adjusted altitude is %3.0f meters.\n", bme.readAltitude(SEALEVELPRESSURE_HPA));
+  Serial.println(SEALEVELPRESSURE_HPA);
+  Serial.println("Was that different?");
+
   for (int i = 0; i<30; i++){
   zeroMprPa = wtgAverage(zeroMprPa, (bme.readPressure()/100.0F) - mpr.readPressure()); // Calculate the time weighted average
   Serial.println(zeroMprPa);
@@ -217,9 +228,9 @@ for (size_t i = 0; i < 10; i++)
 }
 
   Serial.printf("%4.20lf", wHPa);
-  Serial.println(" Weighted average HPa");
+  Serial.println(" Weighted average HPa on the MPR");
   Serial.print(mpr.readPressure(), 4);
-  Serial.println(" HPa read");
+  Serial.println(" HPa read on MPR");
   printValues();
 
 float mprHPa = mpr.readPressure();
@@ -245,7 +256,7 @@ float bmeInH20 = bmeHPa * convertPaToH2O;
   Serial.println(" HPa corrected difference");
   Serial.print("\033[1;32m"); //Set terminal color to green
   Serial.print((bmeHPa - mprHPa - zeroMprPa)*convertPaToH2O, 3);
-  Serial.print(" Differential pressure in inH2O\033[0m\n\a"); //Set terminal color back to white and insert a carrage return. \a is the Terminal bell. It works with Putty but not with the terminal built into PlatformIO
+  Serial.print(" Differential pressure in inH2O\033[0m\n\n\a"); //Set terminal color back to white and insert a carrage return. \a is the Terminal bell. It works with Putty but not with the terminal built into PlatformIO
 //  Serial.println("\033[1;32mbold green text\033[0m plain text\n");
 
   // Serial.print(mprInH20, 4);
