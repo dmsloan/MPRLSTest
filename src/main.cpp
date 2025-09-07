@@ -244,7 +244,7 @@ for (size_t i = 0; i < 10; i++)
   Serial.print(mpr.readPressure(), 4);
   Serial.println("Raw uncorrected HPa read on MPR");
   Serial.print(bme.readPressure(), 4);
-  serial.println("Raw uncorrected HPa read on BME)
+  Serial.println("Raw uncorrected HPa read on BME");
   printValues();
 
 float mprHPa = mpr.readPressure();
